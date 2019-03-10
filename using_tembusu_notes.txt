@@ -1,0 +1,9 @@
+1.enable account 
+
+2.download sunfire
+
+3.use sunfire.comp.nus.edu.sg as host name
+
+4.type ssh xcna0
+
+5. type pip3.6 install nltk --user 
