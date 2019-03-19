@@ -9,6 +9,7 @@ from nltk.tokenize import word_tokenize
 from nltk.stem import PorterStemmer
 from nltk.corpus import stopwords
 import _pickle as cPickle
+import math
 
 #for code development
 trng_dir = 'C:/Users/Wei Chin/Desktop/CS3245/HW #2/reuters/reuters/training'
@@ -17,6 +18,8 @@ set_stopwords = set(stopwords.words('english'))
 punc = "()[.,?!'\";:-]/+>$*^`&"
 #initialised inverted_index, key == words, value = posting list
 inverted_index = {}
+
+doc_weight_map = {}
 
 #preprocess token_list, return a preprocessed dic of words (dic key) and their term freqs (dic value)
 def process_token_list(token_list):
@@ -47,6 +50,7 @@ def process_token_list(token_list):
                     processed_dic[processed_token] += 1
                 
     return processed_dic
+
 
 
 #preprocess line, return a preprocessed set of words 
@@ -90,7 +94,28 @@ def populate_index(doc_word_dic):
             inverted_index[word] = [tup]
         else:
             inverted_index[word].append(tup)
-            
+
+def compute_weight(tf):
+    tf = 1 + math.log10(tf)
+    return tf 
+
+def store_doc_level_weights(term, sorted_list, reuters_file_lst):
+    
+    appear_lst = []
+    for tup in sorted_list:
+        docID, weight = tup
+        if docID not in doc_weight_map:
+            doc_weight_map[docID] = [(term, weight)]
+        else:
+            doc_weight_map[docID].append((term, weight))
+        appear_lst.append(docID)
+    
+    for doc_i in reuters_file_lst:
+        if int(doc_i) not in appear_lst:
+            if int(doc_i) not in doc_weight_map:
+                doc_weight_map[int(doc_i)] = [(term, 0)]
+            else:
+                doc_weight_map[int(doc_i)].append((term, 0))
 
 
 def index(reuters_dir, dic_file, post_file):
@@ -126,14 +151,42 @@ def index(reuters_dir, dic_file, post_file):
 
         #write posting values and is human-readable
         lst = inverted_index[term]
-        sorted_lst = sorted(lst, key=lambda element : (element[0], element[1]))
-        line_pf = str(sorted_lst) + '\n'
-        p_f.write(line_pf)
         
+        df = len(lst)
+        #convert to tf-idf
+        for i in range(len(lst)):
+            tup = lst[i]
+            docID, tf = tup
+            weight = compute_weight(tf)
+            lst[i] = (docID, weight) 
+        sorted_lst = sorted(lst, key=lambda element : element[1])
+        idf = math.log10(7769/df)
+        line_pf = str(idf) + ' '+ str(sorted_lst) + '\n'
+        p_f.write(line_pf)
+        store_doc_level_weights(term, sorted_lst, reuters_file_lst)
+        sorted_lst.append(idf)
         cPickle.dump(sorted_lst, p_picke_f)
     d_f.close()
     p_f.close()
     p_picke_f.close()
+
+    d_f_1 = open('doc.txt', 'w+')
+    p_f_1 = open('weight_humanreadable.txt', 'w+')
+    p_picke_f_1 = open('weight.txt', 'wb')
+    
+    for doc in sorted(doc_weight_map.keys()):
+        weight_list = doc_weight_map[doc]
+        sorted_weight_list = weight_list
+        line_df_1 = str(doc) + ' '+ str(p_picke_f_1.tell()) + '\n'
+        d_f_1.write(line_df_1)
+
+        line_pf_1 = str(sorted_weight_list) + '\n'
+        p_f_1.write(line_pf_1)
+        cPickle.dump(sorted_weight_list, p_picke_f_1)
+    d_f_1.close()
+    p_f_1.close()
+    p_picke_f_1.close()
+
 
 
 
